@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pyjwt
+passlib[bcrypt]
+bcrypt
+slowapi
+reportlab
+openpyxl
+python-multipart
+psycopg2-binary
