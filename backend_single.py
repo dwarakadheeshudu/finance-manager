@@ -1416,30 +1416,31 @@ def get_dashboard_analytics(current_user: User = Depends(get_current_user), db: 
 # ==============================================================================
 # 9. FASTAPI APPLICATION SETUP & SEEDING
 # ==============================================================================
-# Initialize Database tables
-Base.metadata.create_all(bind=engine)
-
-# Create default admin user on startup
-db_session = SessionLocal()
+# Initialize Database tables and Admin user safely on startup
 try:
-    admin_exists = db_session.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
-    if not admin_exists:
-        hashed_pw = get_password_hash(settings.ADMIN_PASSWORD)
-        admin_user = User(
-            full_name="System Administrator",
-            email=settings.ADMIN_EMAIL,
-            password_hash=hashed_pw,
-            role="admin",
-            monthly_salary=100000.0,
-            savings_goal=20000.0
-        )
-        db_session.add(admin_user)
-        db_session.commit()
-        print("Default admin user created successfully.")
+    Base.metadata.create_all(bind=engine)
+    db_session = SessionLocal()
+    try:
+        admin_exists = db_session.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
+        if not admin_exists:
+            hashed_pw = get_password_hash(settings.ADMIN_PASSWORD)
+            admin_user = User(
+                full_name="System Administrator",
+                email=settings.ADMIN_EMAIL,
+                password_hash=hashed_pw,
+                role="admin",
+                monthly_salary=100000.0,
+                savings_goal=20000.0
+            )
+            db_session.add(admin_user)
+            db_session.commit()
+            print("Default admin user created successfully.")
+    except Exception as e:
+        print(f"Error checking/creating default admin user: {e}")
+    finally:
+        db_session.close()
 except Exception as e:
-    print(f"Error creating default admin: {e}")
-finally:
-    db_session.close()
+    print(f"Database initialization failed during server startup: {e}")
 
 # Rate Limiting configuration
 limiter = Limiter(key_func=get_remote_address)

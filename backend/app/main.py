@@ -14,30 +14,31 @@ from backend.app.routers import (
     auth, expenses, budgets, savings, ai, reports, admin, notifications, dashboard
 )
 
-# Initialize Database tables
-Base.metadata.create_all(bind=engine)
-
-# Create default admin user on startup
-db = SessionLocal()
+# Initialize Database tables and Admin user safely on startup
 try:
-    admin_exists = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
-    if not admin_exists:
-        hashed_pw = get_password_hash(settings.ADMIN_PASSWORD)
-        admin_user = User(
-            full_name="System Administrator",
-            email=settings.ADMIN_EMAIL,
-            password_hash=hashed_pw,
-            role="admin",
-            monthly_salary=100000.0,
-            savings_goal=20000.0
-        )
-        db.add(admin_user)
-        db.commit()
-        print("Default admin user created successfully.")
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        admin_exists = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
+        if not admin_exists:
+            hashed_pw = get_password_hash(settings.ADMIN_PASSWORD)
+            admin_user = User(
+                full_name="System Administrator",
+                email=settings.ADMIN_EMAIL,
+                password_hash=hashed_pw,
+                role="admin",
+                monthly_salary=100000.0,
+                savings_goal=20000.0
+            )
+            db.add(admin_user)
+            db.commit()
+            print("Default admin user created successfully.")
+    except Exception as e:
+        print(f"Error checking/creating default admin user: {e}")
+    finally:
+        db.close()
 except Exception as e:
-    print(f"Error creating default admin: {e}")
-finally:
-    db.close()
+    print(f"Database initialization failed during server startup: {e}")
 
 # Rate Limiter setup
 limiter = Limiter(key_func=get_remote_address)
