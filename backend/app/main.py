@@ -55,8 +55,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # CORS Policy configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict to React client domain e.g. ["http://localhost:5173"]
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
