@@ -62,7 +62,14 @@ if settings.DATABASE_URL.startswith("sqlite"):
 else:
     connect_args = {"connect_timeout": 5}
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgresql") and "sslmode=" not in db_url:
+    if "?" in db_url:
+        db_url += "&sslmode=require"
+    else:
+        db_url += "?sslmode=require"
+
+engine = create_engine(db_url, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
