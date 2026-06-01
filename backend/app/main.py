@@ -1,3 +1,11 @@
+import os
+import sys
+
+# Ensure the parent of the 'backend' folder is in sys.path so that absolute imports starting with 'backend' work on Render
+backend_parent = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if backend_parent not in sys.path:
+    sys.path.insert(0, backend_parent)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
