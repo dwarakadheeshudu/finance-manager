@@ -63,20 +63,20 @@ Because SQLite stores data in a local file (`finance.db`), it is not suited for 
 6. Click **Deploy Web Service**.
 7. Once deployed, Render will show a public URL for your backend (e.g. `https://finance-manager-backend.onrender.com`). Copy this URL.
 
----
+## Step 4: Deploy the Frontend (Netlify)
 
-## Step 4: Deploy the Frontend (Vercel)
-
-1. Sign up/Log in at [Vercel](https://vercel.com/).
-2. Click **Add New** > **Project**.
-3. Import your `smart-finance-manager` repository.
+1. Sign up/Log in at [Netlify](https://www.netlify.com/).
+2. Click **Add new site** > **Import from Git**.
+3. Connect your GitHub account and select your `smart-finance-manager` repository.
 4. Configure the project:
-   - **Framework Preset:** `Vite` (it will auto-detect Vite)
-   - **Root Directory:** `frontend` (Important: Point to the frontend folder)
-5. Under **Environment Variables**, add:
+   - **Base directory:** `frontend` (Important: Point to the frontend folder)
+   - **Build command:** `npm run build`
+   - **Publish directory:** `dist` (This is where Vite outputs the build)
+5. Under **Environment variables**, click **Add variable** to add:
    - **Key:** `VITE_API_URL`
    - **Value:** `https://your-backend-url.onrender.com/api` *(Make sure to replace this with your actual Render URL and append `/api` to the end!)*
-6. Click **Deploy**.
-7. In a few minutes, Vercel will give you a public URL (e.g., `https://smart-finance-manager.vercel.app`).
+6. Click **Deploy Site**.
+7. In a few minutes, Netlify will give you a public URL (e.g., `https://smart-finance-manager.netlify.app`).
 
 **That's it! Your application is now live and public permanently!** 🚀
+
