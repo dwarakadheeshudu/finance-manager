@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Printer,
   X,
-  Volume2
+  Volume2,
+  VolumeX,
+  Pill
 } from 'lucide-react';
 import { medicaiApi } from '../services/medicaiApi';
 
@@ -209,6 +211,155 @@ const InputEchoPanel: React.FC<{ inputs?: Record<string, any> }> = ({ inputs }) 
   );
 };
 
+interface MedicationGuidanceProps {
+  guidance?: {
+    is_severe?: boolean;
+    severity_level?: string;
+    primary_specialist?: string;
+    primary_department?: string;
+    headline?: string;
+    medicines?: Array<{
+      name: string;
+      dosage: string;
+      purpose: string;
+      notes: string;
+      category: string;
+    }>;
+    doctor_consultation_advice?: string;
+    speech_script?: string;
+  };
+  onConsultDoctor: (doctorName: string, department: string) => void;
+  onSpeak: (text: string) => void;
+  onStopSpeak: () => void;
+  isSpeaking: boolean;
+}
+
+const MedicationGuidancePanel: React.FC<MedicationGuidanceProps> = ({
+  guidance,
+  onConsultDoctor,
+  onSpeak,
+  onStopSpeak,
+  isSpeaking
+}) => {
+  if (!guidance || !guidance.medicines || guidance.medicines.length === 0) return null;
+  const isSevere = Boolean(guidance.is_severe);
+  const speakText = guidance.speech_script || guidance.doctor_consultation_advice || '';
+
+  return (
+    <div
+      className={`p-4 rounded-2xl border-2 text-left space-y-3 shadow-sm ${
+        isSevere
+          ? 'bg-rose-50/90 border-rose-400'
+          : 'bg-sky-50/80 border-sky-300'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded-lg ${isSevere ? 'bg-rose-600 text-white' : 'bg-sky-600 text-white'}`}>
+            <Pill className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-slate-900">
+                1st Priority: Detailed Medicine Guidance
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                  isSevere
+                    ? 'bg-rose-600 text-white'
+                    : guidance.severity_level === 'Moderate'
+                    ? 'bg-amber-200 text-amber-900'
+                    : 'bg-emerald-200 text-emerald-900'
+                }`}
+              >
+                {guidance.severity_level || (isSevere ? 'Severe' : 'Mild')}
+              </span>
+            </div>
+            <div className="text-[11px] font-semibold text-slate-700">{guidance.headline}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {isSpeaking ? (
+            <button
+              type="button"
+              onClick={onStopSpeak}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-semibold flex items-center gap-1 hover:bg-slate-800 transition"
+            >
+              <VolumeX className="h-3.5 w-3.5" /> Stop Voice
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => speakText && onSpeak(speakText)}
+              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-800 text-[11px] font-semibold flex items-center gap-1 hover:bg-slate-100 transition"
+            >
+              <Volume2 className="h-3.5 w-3.5 text-sky-600" /> Say Guidance
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {guidance.medicines.map((med, idx) => (
+          <div key={idx} className="bg-white rounded-xl p-3 border border-slate-200/90 space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-bold text-xs text-slate-900">
+                {idx + 1}. {med.name}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                  med.category.includes('OTC')
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-indigo-100 text-indigo-800'
+                }`}
+              >
+                {med.category}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-800">
+              <b>Dosage:</b> {med.dosage}
+            </div>
+            <div className="text-[11px] text-slate-600">
+              <b>Why / Purpose:</b> {med.purpose}
+            </div>
+            <div className="text-[10px] text-slate-500">
+              <b>Safety Note:</b> {med.notes}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+          isSevere
+            ? 'bg-rose-100 border-rose-300 text-rose-950'
+            : 'bg-amber-50 border-amber-200 text-amber-950'
+        }`}
+      >
+        <div className="text-[11px] font-semibold leading-relaxed flex items-start gap-2">
+          <AlertTriangle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${isSevere ? 'text-rose-700' : 'text-amber-700'}`} />
+          <span>{guidance.doctor_consultation_advice}</span>
+        </div>
+        {guidance.primary_specialist && guidance.primary_department && (
+          <button
+            type="button"
+            onClick={() => onConsultDoctor(guidance.primary_specialist!, guidance.primary_department!)}
+            className={`px-3 py-2 rounded-lg text-[11px] font-bold whitespace-nowrap flex items-center gap-1.5 shadow-sm transition ${
+              isSevere
+                ? 'bg-rose-700 hover:bg-rose-800 text-white'
+                : 'bg-slate-800 hover:bg-slate-900 text-white'
+            }`}
+          >
+            <Stethoscope className="h-3.5 w-3.5" />
+            {isSevere ? 'Consult Doctor Now' : 'Consult Doctor'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const MedicAIDashboard: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -230,6 +381,41 @@ export const MedicAIDashboard: React.FC = () => {
   const [printPreviewMode, setPrintPreviewMode] = useState<'master' | 'appointment' | null>(null);
   const [printAppointmentTarget, setPrintAppointmentTarget] = useState<any>(null);
   const [reportDownloading, setReportDownloading] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
+
+  const speakClinicalGuidance = (text: string, forceSpeak = false) => {
+    if ((!voiceEnabled && !forceSpeak) || !text) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.98;
+      utter.pitch = 1.0;
+      utter.onstart = () => setIsSpeaking(true);
+      utter.onend = () => setIsSpeaking(false);
+      utter.onerror = () => setIsSpeaking(false);
+      setIsSpeaking(true);
+      window.speechSynthesis.speak(utter);
+    } catch {
+      setIsSpeaking(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     medicaiApi.checkHealth()
@@ -487,6 +673,7 @@ export const MedicAIDashboard: React.FC = () => {
       });
       setRareResult(res);
       setRankedTests(res.tests || []);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Failed to connect to backend API.');
@@ -532,6 +719,7 @@ export const MedicAIDashboard: React.FC = () => {
         CancerHistory: cancerHistory
       });
       setCancerResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Cancer prediction failed. Verify backend is running.');
@@ -559,6 +747,7 @@ export const MedicAIDashboard: React.FC = () => {
         thal: heartThal
       });
       setHeartResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Heart prediction failed. Verify backend is running.');
@@ -578,6 +767,7 @@ export const MedicAIDashboard: React.FC = () => {
     try {
       const res = await medicaiApi.predictParkinsonAudio(targetFile);
       setParkinsonResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch (err: any) {
       setParkinsonError(err.response?.data?.detail || 'Audio processing failed. Ensure file is a valid PCM .wav recording.');
@@ -600,6 +790,7 @@ export const MedicAIDashboard: React.FC = () => {
         spread1: parkSpread1
       });
       setParkinsonResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch (err: any) {
       setParkinsonError(err.response?.data?.detail || 'Acoustic feature evaluation failed.');
@@ -622,6 +813,7 @@ export const MedicAIDashboard: React.FC = () => {
         PhysicalActivityHours: diabActivity
       });
       setDiabetesResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Diabetes prediction failed.');
@@ -643,6 +835,7 @@ export const MedicAIDashboard: React.FC = () => {
         Hemoglobin: kidneyHb
       });
       setKidneyResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Kidney disease evaluation failed.');
@@ -668,6 +861,7 @@ export const MedicAIDashboard: React.FC = () => {
         SystolicBP: respSbp
       });
       setRespResult(res);
+      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
       loadAuditLogs();
     } catch {
       alert('Respiratory evaluation failed.');
@@ -876,6 +1070,31 @@ export const MedicAIDashboard: React.FC = () => {
               FastAPI REST: {backendStatus}
             </span>
             <button
+              type="button"
+              onClick={() => {
+                if (isSpeaking) stopSpeaking();
+                setVoiceEnabled(prev => !prev);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium border text-xs transition ${
+                voiceEnabled
+                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 border-emerald-400/40'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/20'
+              }`}
+              title="Automatically read medication and severity guidance aloud when results arrive"
+            >
+              {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              {isSpeaking ? 'Speaking...' : voiceEnabled ? 'Voice: ON' : 'Voice: OFF'}
+            </button>
+            {isSpeaking && (
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition"
+              >
+                <VolumeX className="h-3.5 w-3.5" /> Stop
+              </button>
+            )}
+            <button
               onClick={openMasterPrintPreview}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg font-medium border border-white/20 text-xs transition"
             >
@@ -1049,7 +1268,16 @@ export const MedicAIDashboard: React.FC = () => {
 
                 {/* Ranked Results */}
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-sm text-slate-700">Prioritized Test Hierarchy</h3>
+                  <h3 className="font-semibold text-sm text-slate-700">Prioritized Test Hierarchy &amp; Medication Guidance</h3>
+                  {rareResult?.medication_guidance && (
+                    <MedicationGuidancePanel
+                      guidance={rareResult.medication_guidance}
+                      onConsultDoctor={bookWithSpecialist}
+                      onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                      onStopSpeak={stopSpeaking}
+                      isSpeaking={isSpeaking}
+                    />
+                  )}
                   {rareResult?.plain_summary && (
                     <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-950 font-medium">
                       {rareResult.plain_summary}
@@ -1236,6 +1464,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {cancerResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={cancerResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border flex flex-col justify-center items-center text-center ${cancerResult.is_high_risk ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
                     {cancerResult.is_high_risk ? <AlertTriangle className="h-10 w-10 text-rose-600 mb-2" /> : <CheckCircle className="h-10 w-10 text-emerald-600 mb-2" />}
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">{cancerResult.risk_category}</span>
@@ -1436,6 +1671,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {heartResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={heartResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border flex flex-col justify-center items-center text-center ${heartResult.is_positive ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
                     {heartResult.is_positive ? <AlertTriangle className="h-10 w-10 text-red-600 mb-2" /> : <CheckCircle className="h-10 w-10 text-emerald-600 mb-2" />}
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">{heartResult.risk_category}</span>
@@ -1641,6 +1883,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {parkinsonResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={parkinsonResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border space-y-3 ${parkinsonResult.is_positive ? 'bg-amber-50 border-amber-300' : 'bg-purple-50/50 border-purple-200'}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-purple-900 uppercase">{parkinsonResult.risk_category}</span>
@@ -1787,6 +2036,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {diabetesResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={diabetesResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border ${diabetesResult.risk_percentage >= 50 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}>
                     <div className="flex justify-between items-start gap-3">
                       <div>
@@ -1950,6 +2206,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {kidneyResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={kidneyResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border ${kidneyResult.is_impaired ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}>
                     <div className="flex justify-between items-start">
                       <div>
@@ -2135,6 +2398,13 @@ export const MedicAIDashboard: React.FC = () => {
 
               {respResult ? (
                 <div className="space-y-4">
+                  <MedicationGuidancePanel
+                    guidance={respResult.medication_guidance}
+                    onConsultDoctor={bookWithSpecialist}
+                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onStopSpeak={stopSpeaking}
+                    isSpeaking={isSpeaking}
+                  />
                   <div className={`p-6 rounded-2xl border ${respResult.respiratory_risk_percentage >= 50 ? 'bg-rose-50 border-rose-300' : 'bg-emerald-50 border-emerald-200'}`}>
                     <div className="flex justify-between items-start gap-3">
                       <div>
@@ -2955,6 +3225,19 @@ export const MedicAIDashboard: React.FC = () => {
                             <b className="text-sm text-slate-900">{dom.title}</b>
                             <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 font-bold">{dom.score} — {dom.tier}</span>
                           </div>
+                          {dom.data.medication_guidance?.medicines?.length > 0 && (
+                            <div className="p-2.5 rounded-lg bg-sky-50 border border-sky-200 space-y-1">
+                              <b className="text-sky-950 block">Recommended Medications:</b>
+                              <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                                {dom.data.medication_guidance.medicines.map((m: any, mIdx: number) => (
+                                  <li key={mIdx}><b>{m.name}</b> — {m.dosage} ({m.purpose})</li>
+                                ))}
+                              </ul>
+                              {dom.data.medication_guidance.doctor_consultation_advice && (
+                                <p className="text-rose-800 font-semibold pt-1">{dom.data.medication_guidance.doctor_consultation_advice}</p>
+                              )}
+                            </div>
+                          )}
                           {dom.data.plain_summary && <p className="text-slate-800 font-medium">{dom.data.plain_summary}</p>}
                           <InputEchoPanel inputs={dom.data.echo_inputs} />
                           {dom.data.recommendation && <p className="text-slate-600"><b>Clinical Action:</b> {dom.data.recommendation}</p>}

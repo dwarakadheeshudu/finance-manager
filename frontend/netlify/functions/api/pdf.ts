@@ -280,6 +280,15 @@ export async function buildMasterReportPdf(
     for (const [heading, detail] of detailedSections) {
       if (!detail) continue;
       c.drawParagraph(heading, 9, true, rgb(0.06, 0.09, 0.16));
+      if (detail.medication_guidance?.medicines?.length) {
+        const medsText = detail.medication_guidance.medicines
+          .map((m: any) => `${m.name} (${m.dosage})`)
+          .join("; ");
+        c.drawParagraph(`Recommended Medications: ${medsText}`, 8);
+        if (detail.medication_guidance.doctor_consultation_advice) {
+          c.drawParagraph(`Doctor Advice: ${detail.medication_guidance.doctor_consultation_advice}`, 8);
+        }
+      }
       if (detail.echo_inputs) c.drawParagraph(`User Inputs: ${formatInputsKv(detail.echo_inputs)}`, 8);
       if (detail.plain_summary) c.drawParagraph(`Summary: ${detail.plain_summary}`, 8);
       if (detail.recommendation) c.drawParagraph(`Clinical Action: ${detail.recommendation}`, 8);

@@ -5,6 +5,43 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
+export interface MedicineItem {
+  name: string;
+  dosage: string;
+  purpose: string;
+  notes: string;
+  category: string;
+}
+
+export interface MedicationGuidance {
+  is_severe: boolean;
+  severity_level: "Severe" | "Moderate" | "Mild / Preventive";
+  primary_specialist: string;
+  primary_department: string;
+  headline: string;
+  medicines: MedicineItem[];
+  doctor_consultation_advice: string;
+  speech_script: string;
+}
+
+function buildSpeechScript(
+  conditionLabel: string,
+  resultSummary: string,
+  medicines: MedicineItem[],
+  isSevere: boolean,
+  specialist: string,
+  department: string
+): string {
+  const medPhrase = medicines
+    .slice(0, 3)
+    .map((m) => `${m.name}, ${m.dosage} (${m.purpose})`)
+    .join("; ");
+  const consultPhrase = isSevere
+    ? `Warning: Your ${conditionLabel} assessment indicates severe or high risk. Please consult ${department} specialist ${specialist} immediately before taking prescription medications.`
+    : `Please verify these medications with ${specialist} before starting any prescription treatment. If symptoms feel severe, consult a doctor immediately.`;
+  return `${conditionLabel} screening complete. ${resultSummary} Recommended medication guidance: ${medPhrase}. ${consultPhrase}`;
+}
+
 export function randomPseudonym(): string {
   const num = Math.floor(1000 + Math.random() * 9000);
   return `PAT-ANON-${num}`;
@@ -53,6 +90,64 @@ export function runCancerPrediction(payload: {
       "Enhanced preventive screening every 6-12 months advised. Reduce smoking/alcohol exposure and optimize BMI.";
   }
 
+  const medicines: MedicineItem[] = [];
+  if (isHigh) {
+    medicines.push({
+      name: "Chemoprevention Review (e.g., Tamoxifen 20 mg or Raloxifene 60 mg, if hormone-risk indicated)",
+      dosage: "Once daily ONLY after specialist biopsy/oncology confirmation",
+      purpose: "Reduces hormone-sensitive cellular proliferation in high hereditary risk profiles",
+      notes: "Strict Prescription (Rx) only; requires oncologist evaluation and coagulation screening",
+      category: "Targeted / Specialist Rx",
+    });
+  }
+  if (Smoking === 1) {
+    medicines.push({
+      name: "Nicotine Replacement Therapy (Nicotine Patch 14-21 mg + Lozenge 2 mg) / Varenicline",
+      dosage: "1 transdermal patch daily (24 hr) or Varenicline 1 mg twice daily (Rx)",
+      purpose: "Accelerates tobacco cessation to halt carcinogen exposure",
+      notes: "Patches are OTC; Varenicline/Bupropion require physician prescription",
+      category: "OTC / Supportive",
+    });
+  }
+  medicines.push({
+    name: "Cholecalciferol (Vitamin D3) + Antioxidant Multivitamin",
+    dosage: "1000 - 2000 IU orally once daily with a meal",
+    purpose: "Supports immune surveillance and cellular DNA repair pathways",
+    notes: "OTC supportive supplement; avoid megadose supplementation without lab levels",
+    category: "OTC / Supportive",
+  });
+  if (riskPct >= 25.0) {
+    medicines.push({
+      name: "Low-Dose Aspirin (75 - 81 mg) Preventive Review",
+      dosage: "75 mg once daily only if cleared by physician for GI/bleeding safety",
+      purpose: "Discussed in USPSTF/NCCN guidelines for select high-risk colorectal chemoprevention",
+      notes: "Do NOT start daily aspirin without ruling out gastric ulcer or bleeding risk",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isHigh,
+    severity_level: isHigh ? "Severe" : riskPct >= 25.0 ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. R. K. Sharma",
+    primary_department: "Oncology",
+    headline: isHigh
+      ? "Immediate Oncology Medication & Preventive Protocol"
+      : "Preventive Oncology & Risk-Reduction Medication Guidance",
+    medicines,
+    doctor_consultation_advice: isHigh
+      ? "SEVERE ONCOLOGY RISK: Consult Oncologist Dr. R. K. Sharma immediately for diagnostic imaging, tumor markers, and specialist prescription before starting any targeted therapy."
+      : "Discuss preventive screening and any chemoprevention or smoking-cessation prescriptions with Dr. R. K. Sharma. If you feel unexplained lumps, weight loss, or severe pain, consult a doctor immediately.",
+    speech_script: buildSpeechScript(
+      "Oncology Cancer Risk",
+      `Estimated risk is ${riskPct} percent, ${riskCategory}.`,
+      medicines,
+      isHigh,
+      "Dr. R. K. Sharma",
+      "Oncology"
+    ),
+  };
+
   const shapFactors = [
     { feature: `Genetic Risk Tier (Tier ${GeneticRisk})`, impact_pct: round1(GeneticRisk * 18.5), direction: GeneticRisk > 0 ? "elevating" : "protective" },
     { feature: `Personal/Family History (${CancerHistory ? "Yes" : "No"})`, impact_pct: round1(CancerHistory * 22.0), direction: CancerHistory ? "elevating" : "protective" },
@@ -97,6 +192,7 @@ export function runCancerPrediction(payload: {
       paper_auc_benchmark: "0.864 (Validated on Clinical Oncology Cohort)",
       recommendation,
       plain_summary: plainSummary,
+      medication_guidance: medicationGuidance,
       echo_inputs: inputsDict,
       shap_feature_importance: shapFactors,
       guideline_standards: "NCCN (National Comprehensive Cancer Network) Guidelines v2026.1",
@@ -164,6 +260,72 @@ export function runHeartPrediction(payload: {
       "Moderate cardiovascular risk profile. Recommend fasting lipid panel, blood pressure monitoring, and preventive cardiology review.";
   }
 
+  const medicines: MedicineItem[] = [];
+  if (isPositive || exang === 1 || oldpeak >= 1.5) {
+    medicines.push({
+      name: "Aspirin (Antiplatelet)",
+      dosage: "75 mg - 81 mg orally once daily after food (300 mg loading ONLY if acute chest pain & advised by ER)",
+      purpose: "Inhibits platelet aggregation to prevent coronary thrombosis and acute myocardial infarction",
+      notes: "Contraindicated in active GI bleed or aspirin allergy; confirm with Cardiologist",
+      category: "Prescription (Doctor Required)",
+    });
+    medicines.push({
+      name: "Sublingual Nitroglycerin (Glyceryl Trinitrate)",
+      dosage: "0.4 mg under the tongue at onset of acute exertional chest pain (max 3 doses, 5 min apart)",
+      purpose: "Rapidly dilates coronary arteries to relieve anginal chest discomfort",
+      notes: "Prescription only; do NOT combine with PDE-5 inhibitors; call emergency services if pain persists > 5 min",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+  if (chol >= 200 || probPct >= 25.0) {
+    medicines.push({
+      name: "Atorvastatin / Rosuvastatin (Statin Therapy)",
+      dosage: isPositive ? "Atorvastatin 40 mg once daily at bedtime" : "Atorvastatin 10 - 20 mg once daily at bedtime",
+      purpose: "Lowers serum LDL cholesterol and stabilizes coronary atherosclerotic plaque",
+      notes: "Prescription required; monitor lipid panel & liver enzymes at 6-12 weeks",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+  if (trestbps >= 130) {
+    medicines.push({
+      name: "Amlodipine or Losartan / Ramipril (Antihypertensive)",
+      dosage: "Amlodipine 5 mg once daily OR Losartan 50 mg once daily in the morning",
+      purpose: "Controls elevated resting blood pressure (" + trestbps + " mmHg) and reduces myocardial workload",
+      notes: "Prescription required; monitor home BP daily and avoid sudden discontinuation",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+  medicines.push({
+    name: "Omega-3 Fatty Acids (EPA/DHA) & Coenzyme Q10",
+    dosage: "Omega-3 1000 mg once daily with meal",
+    purpose: "Supports triglyceride reduction and vascular endothelial health",
+    notes: "OTC cardioprotective supplement alongside Mediterranean/DASH diet",
+    category: "OTC / Supportive",
+  });
+
+  const isSevere = isPositive || probPct >= 50.0;
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isSevere,
+    severity_level: isSevere ? "Severe" : probPct >= 25.0 ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. Vikramaditya Rao",
+    primary_department: "Cardiology",
+    headline: isSevere
+      ? "Urgent Cardiovascular Medication & Emergency Precaution Plan"
+      : "Cardiovascular Preventive & Supportive Medication Plan",
+    medicines,
+    doctor_consultation_advice: isSevere
+      ? "SEVERE CARDIAC RISK DETECTED: Consult Cardiologist Dr. Vikramaditya Rao immediately (or visit emergency care if experiencing chest pain, sweating, or shortness of breath). Do not start prescription drugs without physician clearance."
+      : "Review your cholesterol, blood pressure, and ECG metrics with Dr. Vikramaditya Rao before starting statins or antihypertensives. If you feel chest tightness, dizziness, or severe breathlessness, consult a doctor immediately.",
+    speech_script: buildSpeechScript(
+      "Cardiovascular Heart Disease",
+      `Cardiac risk probability is ${probPct} percent, ${riskCategory}.`,
+      medicines,
+      isSevere,
+      "Dr. Vikramaditya Rao",
+      "Cardiology"
+    ),
+  };
+
   const shapFactors = [
     { feature: `ST Depression / Oldpeak (${oldpeak} mm)`, impact_pct: round1(oldpeak * 16.4), direction: oldpeak > 0.5 ? "elevating" : "protective" },
     { feature: `Resting Blood Pressure (${trestbps} mmHg)`, impact_pct: round1(Math.max(0, trestbps - 120) * 0.45), direction: trestbps > 125 ? "elevating" : "protective" },
@@ -212,6 +374,7 @@ export function runHeartPrediction(payload: {
       paper_recall_benchmark: "0.972 (High Sensitivity for Early Myocardial Ischemia)",
       recommendation,
       plain_summary: plainSummary,
+      medication_guidance: medicationGuidance,
       echo_inputs: inputsDict,
       shap_feature_importance: shapFactors,
       guideline_standards: "ACC/AHA (American College of Cardiology) Clinical Guidelines",
@@ -248,6 +411,69 @@ export function evaluateParkinsonMetrics(
     ? "Elevated phonatory micro-tremor (jitter/shimmer) and reduced HNR detected. Recommend formal MDS-UPDRS motor evaluation and DaTscan review with Neurologist Dr. Ananya Patel."
     : "Vocal acoustic stability within normal physiological limits. No parkinsonian dysphonia signature detected.";
 
+  const medicines: MedicineItem[] = isPositive
+    ? [
+        {
+          name: "Levodopa / Carbidopa (Sinemet)",
+          dosage: "25/100 mg orally 3 times daily (initial titration ONLY by Neurologist)",
+          purpose: "Replenishes striatal dopamine to improve motor bradykinesia, rigidity, and vocal hypophonia",
+          notes: "Strict Neurologist prescription required; take 30-60 min before protein-heavy meals",
+          category: "Prescription (Doctor Required)",
+        },
+        {
+          name: "Rasagiline (MAO-B Inhibitor) or Pramipexole",
+          dosage: "Rasagiline 1 mg once daily in the morning (per Neurologist)",
+          purpose: "Preserves endogenous dopamine signaling in early-stage movement disorders",
+          notes: "Prescription required; monitor for dizziness or drug interactions",
+          category: "Prescription (Doctor Required)",
+        },
+        {
+          name: "Vitamin B12 (Methylcobalamin) + Coenzyme Q10",
+          dosage: "Methylcobalamin 1500 mcg daily + CoQ10 100 mg daily",
+          purpose: "Supports peripheral nerve & mitochondrial neuroprotection",
+          notes: "OTC supportive supplement alongside LSVT LOUD speech therapy",
+          category: "OTC / Supportive",
+        },
+      ]
+    : [
+        {
+          name: "Warm Saline Hydration & Vocal Cord Rest",
+          dosage: "2.5 - 3 L water daily; steam inhalation 10 min as needed",
+          purpose: "Maintains laryngeal mucosal hydration and stable phonatory fold vibration",
+          notes: "Non-pharmacological supportive care; no dopaminergic medication indicated",
+          category: "OTC / Supportive",
+        },
+        {
+          name: "Vitamin B-Complex (Neurotropic B1/B6/B12)",
+          dosage: "1 tablet once daily after breakfast",
+          purpose: "Supports baseline neuromuscular transmission and vocal endurance",
+          notes: "OTC nutritional support",
+          category: "OTC / Supportive",
+        },
+      ];
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isPositive,
+    severity_level: isPositive ? "Severe" : riskPct >= 30.0 ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. Ananya Patel",
+    primary_department: "Neurology & Movement Disorders",
+    headline: isPositive
+      ? "Neurology Movement Disorder & Vocal Tremor Medication Plan"
+      : "Vocal Health & Preventive Neuro-Support Guidance",
+    medicines,
+    doctor_consultation_advice: isPositive
+      ? "SEVERE VOCAL TREMOR INDICATOR: Consult Neurologist Dr. Ananya Patel promptly for MDS-UPDRS exam and DaTscan imaging before initiating dopaminergic therapy."
+      : "No parkinsonian medication is needed right now. If you develop resting hand tremor, stiffness, or progressive voice softness, consult Dr. Ananya Patel.",
+    speech_script: buildSpeechScript(
+      "Parkinson's Voice Screening",
+      `Dysphonia tremor index is ${riskPct} percent, ${riskCategory}.`,
+      medicines,
+      isPositive,
+      "Dr. Ananya Patel",
+      "Neurology"
+    ),
+  };
+
   const extracted = {
     Fo_Hz: round2(fo),
     Fhi_Hz: round2(fhi ?? fo * 1.18),
@@ -275,6 +501,7 @@ export function evaluateParkinsonMetrics(
     guideline_standards: "MDS Clinical Diagnostic Criteria & Oxford Acoustic Dysphonia Protocol",
     recommendation,
     plain_summary: plainSummary,
+    medication_guidance: medicationGuidance,
   };
 }
 
@@ -459,6 +686,8 @@ export function runDiabetesPrediction(payload: {
   let clinicalTier: string;
   let severity: string;
   let action: string;
+  let isSevere = false;
+  let isModerate = false;
 
   if (HbA1c >= 6.5 || Glucose >= 126.0) {
     probPct = Math.max(probPct, 75.0);
@@ -466,6 +695,7 @@ export function runDiabetesPrediction(payload: {
     severity = "High Risk / Diabetic Range (ADA 2026)";
     action =
       "Diagnostic threshold met (HbA1c >= 6.5% or FPG >= 126 mg/dL). Initiate comprehensive glycemic management, order urine microalbumin & lipid panel, and consult Endocrinologist Dr. Arvind Swaminathan.";
+    isSevere = true;
   } else if (HbA1c >= 5.7 || Glucose >= 100.0 || probPct >= 40.0) {
     if (HbA1c >= 5.7 || Glucose >= 100.0) {
       probPct = Math.min(Math.max(probPct, 40.0), 74.9);
@@ -474,12 +704,85 @@ export function runDiabetesPrediction(payload: {
     severity = "Moderate Risk / Actionable Prevention Window";
     action =
       "Intensive lifestyle modification (DPP standard: 7% body weight reduction, 150 min/wk moderate exercise). Re-evaluate HbA1c every 3-6 months.";
+    isModerate = true;
   } else {
     clinicalTier = "Normal Glucose Homeostasis";
     severity = "Low Risk / Optimal Glycemia";
     action =
       "Glucose and HbA1c within normal ADA range. Maintain balanced low-glycemic diet and active lifestyle; routine screening every 3 years.";
   }
+
+  const medicines: MedicineItem[] = [];
+  if (isSevere) {
+    medicines.push({
+      name: "Metformin Extended-Release (Glucophage XR)",
+      dosage: "500 mg once daily with evening meal, titrated up to 1000-2000 mg/day per physician",
+      purpose: "First-line ADA therapy to reduce hepatic glucose output and improve insulin sensitivity",
+      notes: "Prescription required; verify baseline eGFR >= 30 mL/min before starting",
+      category: "Prescription (Doctor Required)",
+    });
+    medicines.push({
+      name: "Empagliflozin / Dapagliflozin (SGLT2 Inhibitor) or Semaglutide (GLP-1 RA)",
+      dosage: "Empagliflozin 10 mg once daily in the morning (if cardiorenal protection needed)",
+      purpose: "Lowers HbA1c while protecting kidney filtration and reducing cardiovascular risk",
+      notes: "Endocrinologist prescription required; maintain good hydration",
+      category: "Targeted / Specialist Rx",
+    });
+    if (SystolicBP >= 130) {
+      medicines.push({
+        name: "Telmisartan / Losartan (ACEi or ARB)",
+        dosage: "Telmisartan 40 mg once daily",
+        purpose: "Controls BP (" + SystolicBP + " mmHg) and shields renal glomeruli from diabetic nephropathy",
+        notes: "Prescription required; monitor serum potassium & creatinine",
+        category: "Prescription (Doctor Required)",
+      });
+    }
+  } else if (isModerate) {
+    medicines.push({
+      name: "Metformin Preventive Review (Prediabetes with BMI >= 25 or HbA1c >= 6.0%)",
+      dosage: "500 mg once daily with dinner ONLY if prescribed after DPP lifestyle review",
+      purpose: "Delays progression from prediabetes to overt Type 2 Diabetes",
+      notes: "Prescription required; combine with 150 min/wk exercise",
+      category: "Prescription (Doctor Required)",
+    });
+    medicines.push({
+      name: "Vitamin D3 + Magnesium Glycinate + Soluble Fiber (Psyllium)",
+      dosage: "Psyllium 5 g before meals with water; Vitamin D3 1000 IU daily",
+      purpose: "Blunts post-prandial glucose spikes and supports insulin signaling",
+      notes: "OTC metabolic support",
+      category: "OTC / Supportive",
+    });
+  } else {
+    medicines.push({
+      name: "Balanced Low-Glycemic Diet & Daily Electrolytes/Hydration",
+      dosage: "No anti-diabetic medication required",
+      purpose: "Maintains optimal fasting glucose and HbA1c < 5.7%",
+      notes: "Supportive preventive wellness",
+      category: "OTC / Supportive",
+    });
+  }
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isSevere,
+    severity_level: isSevere ? "Severe" : isModerate ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. Arvind Swaminathan",
+    primary_department: "Endocrinology & Diabetology",
+    headline: isSevere
+      ? "Type 2 Diabetes Glycemic Medication Protocol (ADA 2026)"
+      : "Metabolic & Glycemic Medication Guidance",
+    medicines,
+    doctor_consultation_advice: isSevere
+      ? "SEVERE GLYCEMIC ELEVATION: Consult Endocrinologist Dr. Arvind Swaminathan immediately to confirm HbA1c, check kidney function, and initiate prescription glycemic therapy. Seek urgent care if experiencing excessive thirst, confusion, or nausea."
+      : "Consult Dr. Arvind Swaminathan before starting any blood-sugar medication. If you feel dizzy, shaky, extremely fatigued, or experience blurred vision, consult a doctor immediately.",
+    speech_script: buildSpeechScript(
+      "Type 2 Diabetes",
+      `Classification is ${clinicalTier} with ${probPct} percent risk.`,
+      medicines,
+      isSevere,
+      "Dr. Arvind Swaminathan",
+      "Endocrinology"
+    ),
+  };
 
   const retinopathyRisk = round1(clamp(Math.max(0.0, HbA1c - 5.0) * 12.5 + Age * 0.15, 2.0, 95.0));
   const nephropathyRisk = round1(clamp(Math.max(0.0, Glucose - 90.0) * 0.35 + Math.max(0.0, SystolicBP - 110.0) * 0.4, 3.0, 90.0));
@@ -522,6 +825,7 @@ export function runDiabetesPrediction(payload: {
       },
       recommendation: action,
       plain_summary: plainSummary,
+      medication_guidance: medicationGuidance,
       echo_inputs: inputsDict,
       shap_feature_importance: shapFactors,
       clinical_guidelines: "American Diabetes Association (ADA) Standards of Care in Diabetes 2026",
@@ -610,9 +914,76 @@ export function runKidneyPrediction(payload: {
   const dialysis5yrRisk = round1(clamp((1.0 / (1.0 + Math.exp(-(-2.5 + 0.35 * kfreScore)))) * 100.0, 0.5, 98.0));
 
   const isPositive = calculatedEgfr < 60.0 || hasAlbuminuria;
+  const isSevere = calculatedEgfr < 45.0 || urineAlbumin > 300.0;
   let baseRisk = Math.max(0.0, 95.0 - calculatedEgfr) * 0.9 + Math.min(30.0, urineAlbumin / 15.0);
   if (!isPositive) baseRisk = Math.min(baseRisk, 28.0);
   const overallRiskPct = round1(clamp(baseRisk, 3.0, 99.0));
+
+  const medicines: MedicineItem[] = [];
+  if (isPositive) {
+    medicines.push({
+      name: "Losartan / Telmisartan (ARB) or Ramipril (ACE Inhibitor)",
+      dosage: "Losartan 25 - 50 mg once daily (titrated to BP & potassium tolerance)",
+      purpose: "Reduces intraglomerular pressure, lowers proteinuria, and slows CKD progression",
+      notes: "Prescription required; check serum creatinine & potassium 2 weeks after starting",
+      category: "Prescription (Doctor Required)",
+    });
+    if (calculatedEgfr >= 20.0) {
+      medicines.push({
+        name: "Dapagliflozin / Empagliflozin (SGLT2 Inhibitor)",
+        dosage: "10 mg orally once daily",
+        purpose: "KDIGO 2024 first-line nephroprotective agent to preserve eGFR and prevent dialysis",
+        notes: "Prescription required; avoid in acute dehydration or ketoacidosis",
+        category: "Targeted / Specialist Rx",
+      });
+    }
+    if (hemoglobin < 11.5) {
+      medicines.push({
+        name: "Oral Iron (Ferrous Bisglycinate) / Renal Anemia Workup",
+        dosage: "Ferrous bisglycinate 25-65 mg elemental iron daily (if iron-deficient)",
+        purpose: "Addresses CKD-associated anemia (Hemoglobin " + hemoglobin + " g/dL)",
+        notes: "Severe anemia in Stage G4-G5 may require specialist EPO/ESA therapy",
+        category: "OTC / Supportive",
+      });
+    }
+    medicines.push({
+      name: "STRICTLY AVOID NSAIDs (Ibuprofen, Naproxen, Diclofenac)",
+      dosage: "Use Acetaminophen/Paracetamol 500 mg PRN for mild pain (max 2 g/day) ONLY if needed",
+      purpose: "Prevents acute-on-chronic nephrotoxic kidney injury",
+      notes: "Critical renal safety precaution",
+      category: "OTC / Supportive",
+    });
+  } else {
+    medicines.push({
+      name: "Adequate Hydration & Nephrotoxin Avoidance",
+      dosage: "No renal prescription medication indicated; limit chronic NSAID use",
+      purpose: "Maintains healthy glomerular filtration and normal urine albumin",
+      notes: "Supportive preventive guidance",
+      category: "OTC / Supportive",
+    });
+  }
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isSevere,
+    severity_level: isSevere ? "Severe" : isPositive ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. Preeti Deshmukh",
+    primary_department: "Nephrology & Renal Transplant",
+    headline: isPositive
+      ? "Nephroprotective Medication & Renal Safety Plan (KDIGO 2024)"
+      : "Renal Preservation & Safety Guidance",
+    medicines,
+    doctor_consultation_advice: isSevere
+      ? "SEVERE RENAL IMPAIRMENT: Consult Nephrologist Dr. Preeti Deshmukh immediately for electrolyte panel, renal ultrasound, and prescription nephroprotection. Seek urgent care if experiencing leg swelling, reduced urine output, or shortness of breath."
+      : "Discuss any blood-pressure or kidney-protective medications with Dr. Preeti Deshmukh. Avoid over-the-counter NSAID painkillers, and consult a doctor immediately if swelling or severe fatigue develops.",
+    speech_script: buildSpeechScript(
+      "Chronic Kidney Disease",
+      `Calculated eGFR is ${calculatedEgfr}, ${stage}.`,
+      medicines,
+      isSevere,
+      "Dr. Preeti Deshmukh",
+      "Nephrology"
+    ),
+  };
 
   const shapFactors = [
     { feature: `Serum Creatinine (${scr} mg/dL) / eGFR (${calculatedEgfr})`, impact_pct: round1(Math.max(0.0, 1.1 - scr) * -15.0 + Math.max(0.0, scr - 1.1) * 32.0), direction: scr > 1.1 ? "elevating" : "protective" },
@@ -665,6 +1036,7 @@ export function runKidneyPrediction(payload: {
       model_used: "KDIGO 2024 Clinical Staging & CKD-EPI 2021 Validated Equation",
       recommendation,
       plain_summary: plainSummary,
+      medication_guidance: medicationGuidance,
       echo_inputs: inputsDict,
       shap_feature_importance: shapFactors,
       clinical_guidelines: "KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of CKD",
@@ -722,6 +1094,8 @@ export function runRespiratoryPrediction(payload: {
   let triageLevel: string;
   let riskCategory: string;
   let disposition: string;
+  const isSevere = curbScore >= 2 || hypoxemia || respRiskPct >= 45.0;
+
   if (curbScore >= 3 || severeHypoxemia || respRiskPct >= 75.0) {
     triageLevel = "Severe Pneumonia / Acute Respiratory Failure (ICU / High-Dependency Triage)";
     riskCategory = "Severe / Critical";
@@ -738,6 +1112,72 @@ export function runRespiratoryPrediction(payload: {
     disposition =
       "Outpatient oral therapy suitable under close clinical monitoring. Return immediately if SpO2 drops below 92% or dyspnea worsens.";
   }
+
+  const medicines: MedicineItem[] = [];
+  if (curbScore >= 3 || severeHypoxemia || respRiskPct >= 75.0) {
+    medicines.push({
+      name: "IV Ceftriaxone + Azithromycin (Hospital Inpatient Regimen) & Supplemental O2",
+      dosage: "Ceftriaxone 1-2 g IV q24h + Azithromycin 500 mg IV/PO daily + O2 titrated to SpO2 >= 94%",
+      purpose: "Broad-spectrum coverage for severe community-acquired pneumonia and hypoxemia correction",
+      notes: "EMERGENCY HOSPITAL / PHYSICIAN ADMINISTRATION ONLY",
+      category: "Targeted / Specialist Rx",
+    });
+  } else if (isSevere || CracklesWheezing === 2) {
+    medicines.push({
+      name: "Amoxicillin-Clavulanate + Azithromycin (or Doxycycline)",
+      dosage: "Amoxicillin-Clavulanate 875/125 mg twice daily + Azithromycin 500 mg day 1, then 250 mg days 2-5",
+      purpose: "Treats bacterial lower respiratory infection / pneumonia per ATS/IDSA guidelines",
+      notes: "Prescription required; complete full antibiotic course after physician confirmation",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+  if (CracklesWheezing === 1 || DyspneaGrade >= 2) {
+    medicines.push({
+      name: "Salbutamol / Albuterol Metered-Dose Inhaler (or Nebulizer)",
+      dosage: "2 puffs (100 mcg/puff) every 4-6 hours as needed for wheezing/bronchospasm",
+      purpose: "Rapidly dilates constricted bronchioles to ease breathing",
+      notes: "Prescription inhaler; seek ER immediately if rescue inhaler fails to relieve breathlessness",
+      category: "Prescription (Doctor Required)",
+    });
+  }
+  if (Temperature >= 37.8) {
+    medicines.push({
+      name: "Acetaminophen / Paracetamol (Antipyretic)",
+      dosage: "500 - 650 mg orally every 6-8 hours as needed for fever (max 3000 mg/day)",
+      purpose: "Reduces fever (" + Temperature + "°C) and pleuritic discomfort",
+      notes: "OTC supportive therapy; stay well hydrated",
+      category: "OTC / Supportive",
+    });
+  }
+  medicines.push({
+    name: "Guaifenesin / Saline Steam Inhalation & Oral Hydration",
+    dosage: "Guaifenesin 200-400 mg every 4-6 hrs PRN + warm fluids",
+    purpose: "Thins bronchial mucus secretions to aid airway clearance",
+    notes: "OTC supportive care",
+    category: "OTC / Supportive",
+  });
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isSevere,
+    severity_level: curbScore >= 3 || severeHypoxemia || respRiskPct >= 75.0 ? "Severe" : isSevere ? "Moderate" : "Mild / Preventive",
+    primary_specialist: "Dr. Siddharth Mukherjee",
+    primary_department: "Pulmonology & Critical Care",
+    headline: isSevere
+      ? "Urgent Respiratory Triage & Pneumonia Medication Protocol"
+      : "Respiratory Symptom & Supportive Medication Plan",
+    medicines,
+    doctor_consultation_advice: isSevere
+      ? "SEVERE RESPIRATORY RISK: Consult Pulmonologist Dr. Siddharth Mukherjee or go to Emergency Care immediately (especially with SpO2 < 92%, confusion, or rapid breathing). Antibiotics and oxygen require urgent physician evaluation."
+      : "Consult Dr. Siddharth Mukherjee before taking antibiotics or inhalers. If fever persists > 48 hrs, breathing worsens, or SpO2 drops below 92%, consult a doctor immediately.",
+    speech_script: buildSpeechScript(
+      "Respiratory and Pneumonia Triage",
+      `CURB-65 score is ${curbScore} out of 5, respiratory risk is ${respRiskPct} percent, ${riskCategory}.`,
+      medicines,
+      isSevere,
+      "Dr. Siddharth Mukherjee",
+      "Pulmonology"
+    ),
+  };
 
   const shapFactors = [
     { feature: `Oxygen Saturation SpO2 (${SpO2}%)`, impact_pct: round1(Math.max(0.0, 96.0 - SpO2) * 5.2), direction: SpO2 < 95 ? "elevating" : "protective" },
@@ -793,6 +1233,7 @@ export function runRespiratoryPrediction(payload: {
       model_used: "CURB-65 & GOLD Validated Multi-Factor Respiratory Severity Matrix",
       recommendation: disposition,
       plain_summary: plainSummary,
+      medication_guidance: medicationGuidance,
       echo_inputs: inputsDict,
       shap_feature_importance: shapFactors,
       clinical_guidelines: "British Thoracic Society (BTS) & ATS/IDSA Community-Acquired Pneumonia Guidelines",
@@ -901,10 +1342,59 @@ export function runRarePrioritize(payload: {
     `For ${payload.onset_age} onset with ${payload.suspected_inheritance} and ${payload.phenotypes.length} phenotype cluster(s), ` +
     `top prioritized test is ${topTests[0].test_name} (${topTests[0].probability_ranking_pct}% estimated yield).`;
 
+  const isSevere = isNeuro || isCardiacResp || (payload.phenotypes?.length ?? 0) >= 3;
+  const medicines: MedicineItem[] = [];
+  if (isNeuro) {
+    medicines.push({
+      name: "Levetiracetam (if seizures present) / Neuro-Supportive Therapy",
+      dosage: "Only under Pediatric/Adult Neurology supervision after EEG/MRI confirmation",
+      purpose: "Controls seizure activity or neuromuscular hyperexcitability while WES results are pending",
+      notes: "Strict Prescription (Rx) only",
+      category: "Targeted / Specialist Rx",
+    });
+  }
+  if (isMito || isMetabolic) {
+    medicines.push({
+      name: "Mitochondrial & Metabolic Cofactor Cocktail (CoQ10 + L-Carnitine + Riboflavin)",
+      dosage: "CoQ10 100 mg + L-Carnitine 500 mg + Vitamin B2 (Riboflavin) 100 mg daily per geneticist",
+      purpose: "Supports cellular ATP bioenergetics and prevents metabolic decompensation",
+      notes: "Initiate with Dr. Meera Nambiar after metabolic panel",
+      category: "OTC / Supportive",
+    });
+  }
+  medicines.push({
+    name: "Folic Acid + Vitamin D3 + Multivitamin Nutritional Support",
+    dosage: "1 tablet once daily with food",
+    purpose: "Maintains baseline cellular methylation and bone/neuromuscular health during diagnostic workup",
+    notes: "OTC supportive care; avoid empiric disease-modifying orphan drugs prior to genetic confirmation",
+    category: "OTC / Supportive",
+  });
+
+  const medicationGuidance: MedicationGuidance = {
+    is_severe: isSevere,
+    severity_level: isSevere ? "Severe" : "Moderate",
+    primary_specialist: "Dr. Meera Nambiar",
+    primary_department: "Medical Genetics & Rare Disorders",
+    headline: "Symptom-Supportive & Genetic Workup Medication Guidance",
+    medicines,
+    doctor_consultation_advice: isSevere
+      ? "COMPLEX / SEVERE PHENOTYPE CLUSTER: Consult Medical Geneticist Dr. Meera Nambiar promptly to order confirmatory testing before initiating disease-specific orphan therapies. Seek urgent care for acute seizures or breathing difficulty."
+      : "Review prioritized tests and supportive supplements with Dr. Meera Nambiar. If symptoms feel severe or rapidly progressive, consult a doctor immediately.",
+    speech_script: buildSpeechScript(
+      "Rare Disease Diagnostic Odyssey",
+      `Top recommended test is ${topTests[0].test_name} with ${topTests[0].probability_ranking_pct} percent yield.`,
+      medicines,
+      isSevere,
+      "Dr. Meera Nambiar",
+      "Medical Genetics"
+    ),
+  };
+
   return {
     topTests,
     inputsDict,
     plainSummary,
+    medicationGuidance,
     totalIndexed: TOTAL_ORPHANET_INDEXED,
   };
 }

@@ -264,6 +264,7 @@ export default async (req: Request, _context: Context) => {
         tests: out.topTests,
         echo_inputs: out.inputsDict,
         plain_summary: out.plainSummary,
+        medication_guidance: out.medicationGuidance,
         verification_hash: recHash,
       });
     }
