@@ -227,11 +227,14 @@ interface MedicationGuidanceProps {
     }>;
     doctor_consultation_advice?: string;
     speech_script?: string;
+    speech_script_te?: string;
+    speech_script_te_roman?: string;
   };
   onConsultDoctor: (doctorName: string, department: string) => void;
-  onSpeak: (text: string) => void;
+  onSpeak: (text: string, langOverride?: 'en-IN' | 'te-IN', romanFallback?: string) => void;
   onStopSpeak: () => void;
   isSpeaking: boolean;
+  voiceLang?: 'en-IN' | 'te-IN';
 }
 
 const MedicationGuidancePanel: React.FC<MedicationGuidanceProps> = ({
@@ -239,11 +242,15 @@ const MedicationGuidancePanel: React.FC<MedicationGuidanceProps> = ({
   onConsultDoctor,
   onSpeak,
   onStopSpeak,
-  isSpeaking
+  isSpeaking,
+  voiceLang = 'en-IN'
 }) => {
   if (!guidance || !guidance.medicines || guidance.medicines.length === 0) return null;
   const isSevere = Boolean(guidance.is_severe);
-  const speakText = guidance.speech_script || guidance.doctor_consultation_advice || '';
+  const enText = guidance.speech_script || guidance.doctor_consultation_advice || '';
+  const teText = guidance.speech_script_te || enText;
+  const teRoman = guidance.speech_script_te_roman || enText;
+  const defaultText = voiceLang === 'te-IN' ? teText : enText;
 
   return (
     <div
@@ -289,13 +296,27 @@ const MedicationGuidancePanel: React.FC<MedicationGuidanceProps> = ({
               <VolumeX className="h-3.5 w-3.5" /> Stop Voice
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => speakText && onSpeak(speakText)}
-              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-800 text-[11px] font-semibold flex items-center gap-1 hover:bg-slate-100 transition"
-            >
-              <Volume2 className="h-3.5 w-3.5 text-sky-600" /> Say Guidance
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => defaultText && onSpeak(defaultText, voiceLang, voiceLang === 'te-IN' ? teRoman : undefined)}
+                className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-800 text-[11px] font-semibold flex items-center gap-1 hover:bg-slate-100 transition"
+              >
+                <Volume2 className="h-3.5 w-3.5 text-sky-600" /> {voiceLang === 'te-IN' ? 'తెలుగులో వినండి' : 'Say Guidance'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetLang = voiceLang === 'te-IN' ? 'en-IN' : 'te-IN';
+                  const txt = targetLang === 'te-IN' ? teText : enText;
+                  if (txt) onSpeak(txt, targetLang, targetLang === 'te-IN' ? teRoman : undefined);
+                }}
+                className="px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-semibold hover:bg-indigo-100 transition"
+                title={voiceLang === 'te-IN' ? 'Listen in English' : 'తెలుగు వాయిస్‌లో వినండి (Listen in Telugu)'}
+              >
+                {voiceLang === 'te-IN' ? 'EN' : 'తెలుగు'}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -382,7 +403,26 @@ export const MedicAIDashboard: React.FC = () => {
   const [printAppointmentTarget, setPrintAppointmentTarget] = useState<any>(null);
   const [reportDownloading, setReportDownloading] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceLang, setVoiceLang] = useState<'en-IN' | 'te-IN'>('en-IN');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const loadVoices = () => {
+      try {
+        const list = window.speechSynthesis.getVoices();
+        if (list && list.length > 0) setAvailableVoices(list);
+      } catch {
+        // ignore browser speech voice enumeration errors
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+    };
+  }, []);
 
   const stopSpeaking = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -391,13 +431,46 @@ export const MedicAIDashboard: React.FC = () => {
     setIsSpeaking(false);
   };
 
-  const speakClinicalGuidance = (text: string, forceSpeak = false) => {
+  const speakClinicalGuidance = (
+    text: string,
+    forceSpeak = false,
+    langOverride?: 'en-IN' | 'te-IN',
+    romanFallback?: string
+  ) => {
     if ((!voiceEnabled && !forceSpeak) || !text) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
       window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.98;
+      const targetLang = langOverride || voiceLang;
+      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+      const teluguVoice = voices.find((v) => v.lang.toLowerCase().startsWith('te'));
+      const englishVoice =
+        voices.find((v) => v.lang.toLowerCase() === 'en-in') ||
+        voices.find((v) => v.lang.toLowerCase().startsWith('en'));
+
+      let spokenText = text;
+      let utterLang: string = targetLang;
+      let selectedVoice: SpeechSynthesisVoice | undefined;
+
+      if (targetLang === 'te-IN') {
+        if (teluguVoice || voices.length === 0) {
+          selectedVoice = teluguVoice;
+          utterLang = teluguVoice?.lang || 'te-IN';
+        } else {
+          // If this OS/browser has no Telugu TTS voice installed, use romanized Telugu with English voice
+          spokenText = romanFallback || text;
+          selectedVoice = englishVoice;
+          utterLang = 'en-IN';
+        }
+      } else {
+        selectedVoice = englishVoice;
+        utterLang = englishVoice?.lang || 'en-IN';
+      }
+
+      const utter = new SpeechSynthesisUtterance(spokenText);
+      utter.lang = utterLang;
+      if (selectedVoice) utter.voice = selectedVoice;
+      utter.rate = targetLang === 'te-IN' ? 0.94 : 0.98;
       utter.pitch = 1.0;
       utter.onstart = () => setIsSpeaking(true);
       utter.onend = () => setIsSpeaking(false);
@@ -406,6 +479,17 @@ export const MedicAIDashboard: React.FC = () => {
       window.speechSynthesis.speak(utter);
     } catch {
       setIsSpeaking(false);
+    }
+  };
+
+  const speakResultGuidance = (res: any) => {
+    const g = res?.medication_guidance;
+    if (voiceLang === 'te-IN') {
+      const teText = g?.speech_script_te || res?.plain_summary || g?.speech_script || '';
+      const teRoman = g?.speech_script_te_roman || g?.speech_script || res?.plain_summary || '';
+      speakClinicalGuidance(teText, false, 'te-IN', teRoman);
+    } else {
+      speakClinicalGuidance(g?.speech_script || res?.plain_summary || '', false, 'en-IN');
     }
   };
 
@@ -673,7 +757,7 @@ export const MedicAIDashboard: React.FC = () => {
       });
       setRareResult(res);
       setRankedTests(res.tests || []);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Failed to connect to backend API.');
@@ -719,7 +803,7 @@ export const MedicAIDashboard: React.FC = () => {
         CancerHistory: cancerHistory
       });
       setCancerResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Cancer prediction failed. Verify backend is running.');
@@ -747,7 +831,7 @@ export const MedicAIDashboard: React.FC = () => {
         thal: heartThal
       });
       setHeartResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Heart prediction failed. Verify backend is running.');
@@ -767,7 +851,7 @@ export const MedicAIDashboard: React.FC = () => {
     try {
       const res = await medicaiApi.predictParkinsonAudio(targetFile);
       setParkinsonResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch (err: any) {
       setParkinsonError(err.response?.data?.detail || 'Audio processing failed. Ensure file is a valid PCM .wav recording.');
@@ -790,7 +874,7 @@ export const MedicAIDashboard: React.FC = () => {
         spread1: parkSpread1
       });
       setParkinsonResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch (err: any) {
       setParkinsonError(err.response?.data?.detail || 'Acoustic feature evaluation failed.');
@@ -813,7 +897,7 @@ export const MedicAIDashboard: React.FC = () => {
         PhysicalActivityHours: diabActivity
       });
       setDiabetesResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Diabetes prediction failed.');
@@ -835,7 +919,7 @@ export const MedicAIDashboard: React.FC = () => {
         Hemoglobin: kidneyHb
       });
       setKidneyResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Kidney disease evaluation failed.');
@@ -861,7 +945,7 @@ export const MedicAIDashboard: React.FC = () => {
         SystolicBP: respSbp
       });
       setRespResult(res);
-      speakClinicalGuidance(res.medication_guidance?.speech_script || res.plain_summary || '');
+      speakResultGuidance(res);
       loadAuditLogs();
     } catch {
       alert('Respiratory evaluation failed.');
@@ -1069,6 +1153,34 @@ export const MedicAIDashboard: React.FC = () => {
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
               FastAPI REST: {backendStatus}
             </span>
+            <div className="flex items-center rounded-lg border border-white/20 bg-white/10 overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSpeaking) stopSpeaking();
+                  setVoiceLang('en-IN');
+                }}
+                className={`px-2.5 py-1.5 font-semibold transition ${
+                  voiceLang === 'en-IN' ? 'bg-cyan-500 text-white' : 'text-blue-100 hover:bg-white/10'
+                }`}
+                title="Speak guidance in English"
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSpeaking) stopSpeaking();
+                  setVoiceLang('te-IN');
+                }}
+                className={`px-2.5 py-1.5 font-semibold transition ${
+                  voiceLang === 'te-IN' ? 'bg-cyan-500 text-white' : 'text-blue-100 hover:bg-white/10'
+                }`}
+                title="తెలుగులో వాయిస్ మార్గదర్శకం (Telugu Voice)"
+              >
+                తెలుగు
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -1273,7 +1385,8 @@ export const MedicAIDashboard: React.FC = () => {
                     <MedicationGuidancePanel
                       guidance={rareResult.medication_guidance}
                       onConsultDoctor={bookWithSpecialist}
-                      onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                      onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                       onStopSpeak={stopSpeaking}
                       isSpeaking={isSpeaking}
                     />
@@ -1467,7 +1580,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={cancerResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />
@@ -1674,7 +1788,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={heartResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />
@@ -1886,7 +2001,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={parkinsonResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />
@@ -2039,7 +2155,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={diabetesResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />
@@ -2209,7 +2326,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={kidneyResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />
@@ -2401,7 +2519,8 @@ export const MedicAIDashboard: React.FC = () => {
                   <MedicationGuidancePanel
                     guidance={respResult.medication_guidance}
                     onConsultDoctor={bookWithSpecialist}
-                    onSpeak={(txt) => speakClinicalGuidance(txt, true)}
+                    onSpeak={(txt, lang, roman) => speakClinicalGuidance(txt, true, lang, roman)}
+                    voiceLang={voiceLang}
                     onStopSpeak={stopSpeaking}
                     isSpeaking={isSpeaking}
                   />

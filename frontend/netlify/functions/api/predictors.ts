@@ -22,7 +22,19 @@ export interface MedicationGuidance {
   medicines: MedicineItem[];
   doctor_consultation_advice: string;
   speech_script: string;
+  speech_script_te: string;
+  speech_script_te_roman: string;
 }
+
+const CONDITION_TE_MAP: Record<string, { te: string; roman: string }> = {
+  "Oncology Cancer Risk": { te: "క్యాన్సర్ ప్రమాద పరీక్ష", roman: "Cancer pramaada pariksha" },
+  "Cardiovascular Heart Disease": { te: "గుండె జబ్బుల పరీక్ష", roman: "Gunde jabbula pariksha" },
+  "Parkinson's Voice Screening": { te: "పార్కిన్సన్స్ వాయిస్ పరీక్ష", roman: "Parkinsons voice pariksha" },
+  "Type 2 Diabetes": { te: "టైప్ 2 డయాబెటిస్ పరీక్ష", roman: "Type 2 Diabetes pariksha" },
+  "Chronic Kidney Disease": { te: "కిడ్నీ వ్యాధి పరీక్ష", roman: "Kidney vyadhi pariksha" },
+  "Respiratory and Pneumonia Triage": { te: "శ్వాసకోశ మరియు న్యుమోనియా పరీక్ష", roman: "Shwasakosha mariyu pneumonia pariksha" },
+  "Rare Disease Diagnostic Odyssey": { te: "అరుదైన వ్యాధుల నిర్ధారణ పరీక్ష", roman: "Arudaina vyadhula nirdharana pariksha" },
+};
 
 function buildSpeechScript(
   conditionLabel: string,
@@ -40,6 +52,32 @@ function buildSpeechScript(
     ? `Warning: Your ${conditionLabel} assessment indicates severe or high risk. Please consult ${department} specialist ${specialist} immediately before taking prescription medications.`
     : `Please verify these medications with ${specialist} before starting any prescription treatment. If symptoms feel severe, consult a doctor immediately.`;
   return `${conditionLabel} screening complete. ${resultSummary} Recommended medication guidance: ${medPhrase}. ${consultPhrase}`;
+}
+
+function buildTeluguSpeechScripts(
+  conditionLabel: string,
+  resultSummaryTe: string,
+  resultSummaryRoman: string,
+  medicines: MedicineItem[],
+  isSevere: boolean,
+  specialist: string
+): { te: string; roman: string } {
+  const cond = CONDITION_TE_MAP[conditionLabel] || { te: conditionLabel, roman: conditionLabel };
+  const medNames = medicines
+    .slice(0, 3)
+    .map((m) => `${m.name} (${m.dosage})`)
+    .join(", ");
+  const consultTe = isSevere
+    ? `హెచ్చరిక: మీ ${cond.te} ఫలితంలో అధిక లేదా తీవ్రమైన ప్రమాదం కనిపించింది. దయచేసి ప్రిస్క్రిప్షన్ మందులు ప్రారంభించే ముందు వెంటనే ${specialist} గారిని సంప్రదించండి.`
+    : `దయచేసి ఏదైనా ప్రిస్క్రిప్షన్ మందులు ప్రారంభించే ముందు ${specialist} గారితో నిర్ధారించుకోండి. లక్షణాలు తీవ్రంగా ఉంటే వెంటనే డాక్టర్‌ను సంప్రదించండి.`;
+  const consultRoman = isSevere
+    ? `Hechcharika: Mee ${cond.roman} phalitam lo adhika pramaadam kanipinchindi. Dayachesi prescription mandulu modalupette mundu ventane ${specialist} gaarini sampradinchandi.`
+    : `Dayachesi prescription mandulu modalupette mundu ${specialist} gaaritho nirdharinchukondi. Lakshanaalu teevranga unte ventane doctor nu sampradinchandi.`;
+
+  return {
+    te: `మీ ${cond.te} పూర్తయింది. ${resultSummaryTe} సూచించిన మందుల మార్గదర్శకం: ${medNames}. ${consultTe}`,
+    roman: `Mee ${cond.roman} poorthayindi. ${resultSummaryRoman} Soochinchina mandula margadarshakam: ${medNames}. ${consultRoman}`,
+  };
 }
 
 export function randomPseudonym(): string {
@@ -146,6 +184,17 @@ export function runCancerPrediction(payload: {
       "Dr. R. K. Sharma",
       "Oncology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Oncology Cancer Risk",
+        `అంచనా వేసిన ప్రమాదం ${riskPct} శాతం, ${isHigh ? "అధిక ప్రమాదం" : riskPct >= 25.0 ? "మధ్యస్థ ప్రమాదం" : "తక్కువ ప్రమాదం"}.`,
+        `Anchana vesina pramaadam ${riskPct} shaatham, ${riskCategory}.`,
+        medicines,
+        isHigh,
+        "Dr. R. K. Sharma"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const shapFactors = [
@@ -324,6 +373,17 @@ export function runHeartPrediction(payload: {
       "Dr. Vikramaditya Rao",
       "Cardiology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Cardiovascular Heart Disease",
+        `గుండె జబ్బుల ప్రమాదం ${probPct} శాతం, ${isSevere ? "అధిక ప్రమాదం" : probPct >= 25.0 ? "మధ్యస్థ ప్రమాదం" : "తక్కువ ప్రమాదం"}.`,
+        `Gunde jabbula pramaadam ${probPct} shaatham, ${riskCategory}.`,
+        medicines,
+        isSevere,
+        "Dr. Vikramaditya Rao"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const shapFactors = [
@@ -472,6 +532,17 @@ export function evaluateParkinsonMetrics(
       "Dr. Ananya Patel",
       "Neurology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Parkinson's Voice Screening",
+        `వాయిస్ వణుకు సూచిక ${riskPct} శాతం, ${isPositive ? "అధిక ప్రమాదం" : "సాధారణ వాయిస్"}.`,
+        `Voice vanuku soochika ${riskPct} shaatham, ${riskCategory}.`,
+        medicines,
+        isPositive,
+        "Dr. Ananya Patel"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const extracted = {
@@ -782,6 +853,17 @@ export function runDiabetesPrediction(payload: {
       "Dr. Arvind Swaminathan",
       "Endocrinology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Type 2 Diabetes",
+        `డయాబెటిస్ ప్రమాదం ${probPct} శాతం, స్థితి: ${isSevere ? "టైప్ 2 డయాబెటిస్" : isModerate ? "ప్రీడయాబెటిస్" : "సాధారణ స్థాయి"}.`,
+        `Diabetes pramaadam ${probPct} shaatham, ${clinicalTier}.`,
+        medicines,
+        isSevere,
+        "Dr. Arvind Swaminathan"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const retinopathyRisk = round1(clamp(Math.max(0.0, HbA1c - 5.0) * 12.5 + Age * 0.15, 2.0, 95.0));
@@ -983,6 +1065,17 @@ export function runKidneyPrediction(payload: {
       "Dr. Preeti Deshmukh",
       "Nephrology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Chronic Kidney Disease",
+        `లెక్కించిన ఈజీఎఫ్ఆర్ ${calculatedEgfr}, మొత్తం కిడ్నీ ప్రమాదం ${overallRiskPct} శాతం.`,
+        `Lekkinchina eGFR ${calculatedEgfr}, kidney pramaadam ${overallRiskPct} shaatham.`,
+        medicines,
+        isSevere,
+        "Dr. Preeti Deshmukh"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const shapFactors = [
@@ -1177,6 +1270,17 @@ export function runRespiratoryPrediction(payload: {
       "Dr. Siddharth Mukherjee",
       "Pulmonology"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Respiratory and Pneumonia Triage",
+        `కర్బ్-65 స్కోరు 5కు ${curbScore}, శ్వాసకోశ ప్రమాదం ${respRiskPct} శాతం.`,
+        `CURB-65 score 5 ku ${curbScore}, shwasakosha pramaadam ${respRiskPct} shaatham.`,
+        medicines,
+        isSevere,
+        "Dr. Siddharth Mukherjee"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   const shapFactors = [
@@ -1388,6 +1492,17 @@ export function runRarePrioritize(payload: {
       "Dr. Meera Nambiar",
       "Medical Genetics"
     ),
+    ...(() => {
+      const te = buildTeluguSpeechScripts(
+        "Rare Disease Diagnostic Odyssey",
+        `ప్రధానంగా సూచించిన పరీక్ష ${topTests[0].test_name}, అంచనా ఫలిత శాతం ${topTests[0].probability_ranking_pct} శాతం.`,
+        `Pradhananga soochinchina pariksha ${topTests[0].test_name}, ${topTests[0].probability_ranking_pct} shaatham.`,
+        medicines,
+        isSevere,
+        "Dr. Meera Nambiar"
+      );
+      return { speech_script_te: te.te, speech_script_te_roman: te.roman };
+    })(),
   };
 
   return {
