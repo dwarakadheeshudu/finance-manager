@@ -9,11 +9,11 @@ from typing import List, Dict, Tuple, Optional
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 # Database (SQLAlchemy)
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, func
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, func, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
 
@@ -41,7 +41,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # 1. CONFIGURATION & SETTINGS
 # ==============================================================================
 class Settings:
-    PROJECT_NAME: str = "Smart Personal Finance Manager With AI"
+    PROJECT_NAME: str = "MedicAI: Clinical Intelligence & Diagnostic Platform"
     API_V1_STR: str = "/api"
     SECRET_KEY: str = os.getenv("SECRET_KEY", "finance_manager_super_secret_key_1234567890")
     ALGORITHM: str = "HS256"
@@ -1426,6 +1426,26 @@ def get_dashboard_analytics(current_user: User = Depends(get_current_user), db: 
 # Initialize Database tables and Admin user safely on startup
 try:
     Base.metadata.create_all(bind=engine)
+    
+    # If the database is PostgreSQL, automatically enable Row Level Security (RLS) on all public tables to fix security issues
+    if engine.name == "postgresql":
+        try:
+            with engine.begin() as connection:
+                connection.execute(text("""
+                    DO $$ 
+                    DECLARE 
+                        r RECORD;
+                    BEGIN 
+                        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') 
+                        LOOP 
+                            EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' ENABLE ROW LEVEL SECURITY;';
+                        END LOOP; 
+                    END $$;
+                """))
+            print("Row Level Security (RLS) enabled on all public tables.")
+        except Exception as rls_err:
+            print(f"Failed to enable Row Level Security on startup: {rls_err}")
+
     db_session = SessionLocal()
     try:
         admin_exists = db_session.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
@@ -1453,8 +1473,8 @@ except Exception as e:
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Consolidated Single-File Backend REST API for the Smart Personal Finance Manager With AI application.",
-    version="1.0.0"
+    description="Consolidated Single-File Backend REST API for the MedicAI Clinical Intelligence Enterprise Platform.",
+    version="3.5.0-verified"
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -1484,7 +1504,14 @@ app.include_router(admin_router, prefix=settings.API_V1_STR)
 app.include_router(notifications_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 
-@app.get("/")
+try:
+    from backend.app.routers.medicai import router as medicai_router, ensure_doctors_seeded
+    app.include_router(medicai_router, prefix=settings.API_V1_STR)
+    ensure_doctors_seeded(db_session)
+except Exception as medicai_err:
+    print(f"MedicAI router include note: {medicai_err}")
+
+@app.get("/api/status")
 def read_root():
     return {
         "status": "online",
@@ -1492,6 +1519,25 @@ def read_root():
         "api_version": "v1_single_file",
         "documentation": "/docs"
     }
+
+# Mount and serve built React frontend application at root / for unified single-server deployment on http://127.0.0.1:8000
+frontend_dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+if os.path.exists(frontend_dist_dir):
+    assets_dir = os.path.join(frontend_dist_dir, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend_assets_single")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa_frontend_single(full_path: str):
+        if full_path.startswith(("api", "docs", "redoc", "openapi.json", "static")):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        target_file = os.path.join(frontend_dist_dir, full_path)
+        if full_path and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        index_file = os.path.join(frontend_dist_dir, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return JSONResponse(status_code=404, content={"detail": "Frontend index.html not found"})
 
 if __name__ == "__main__":
     import uvicorn

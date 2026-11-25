@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import AIChatbot from './components/AIChatbot';
+
+import MedicAIDashboard from './pages/MedicAIDashboard';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -74,6 +76,10 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      {/* MedicAI Master Clinical Dashboard */}
+      <Route path="/" element={<MedicAIDashboard />} />
+      <Route path="/medicai" element={<MedicAIDashboard />} />
+
       {/* Public Auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -90,7 +96,7 @@ const AppRoutes: React.FC = () => {
 
       {/* Core Dashboard Modules */}
       <Route 
-        path="/" 
+        path="/finance" 
         element={
           <PrivateRoute>
             <DashboardLayout>
@@ -161,13 +167,20 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    return <HashRouter>{children}</HashRouter>;
+  }
+  return <BrowserRouter>{children}</BrowserRouter>;
+};
+
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <RouterProvider>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
-    </BrowserRouter>
+    </RouterProvider>
   );
 };
 

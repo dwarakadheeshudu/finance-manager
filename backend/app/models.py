@@ -126,3 +126,81 @@ class AIInsight(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="ai_insights")
+
+# ==============================================================================
+# MEDICAI CLINICAL & APPOINTMENT MODELS (SECURE & VERIFIABLE)
+# ==============================================================================
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    specialty = Column(String, nullable=False, index=True)
+    qualifications = Column(String, nullable=False)
+    registration_number = Column(String, nullable=False, unique=True)
+    hospital = Column(String, nullable=False)
+    experience_years = Column(Integer, default=10)
+    consultation_fee = Column(Float, default=100.0)
+    rating = Column(Float, default=4.9)
+    available_days = Column(String, default="Mon-Sat")
+    room_number = Column(String, default="Wing 4B, Room 210")
+    teleconsult_available = Column(Boolean, default=True)
+    verified = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    appointments = relationship("DoctorAppointment", back_populates="doctor_rel")
+
+class DoctorAppointment(Base):
+    __tablename__ = "doctor_appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reference_id = Column(String, unique=True, index=True, nullable=False)
+    patient_name = Column(String, nullable=False)
+    patient_email = Column(String, nullable=True)
+    patient_phone = Column(String, nullable=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True)
+    doctor_name = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    appointment_date = Column(String, nullable=False, index=True) # YYYY-MM-DD
+    time_slot = Column(String, nullable=False, index=True) # e.g. "10:00 AM"
+    consultation_type = Column(String, default="In-Person") # In-Person or Tele-Consultation
+    chief_complaint = Column(String, nullable=True)
+    status = Column(String, default="Confirmed") # Confirmed, Cancelled, Completed
+    security_verification_hash = Column(String, nullable=False) # SHA-256 tamper-proof hash
+    teleconsult_url = Column(String, nullable=True)
+    room_number = Column(String, nullable=True)
+    fee_paid = Column(Float, default=100.0)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    doctor_rel = relationship("Doctor", back_populates="appointments")
+
+class MedicalAuditLog(Base):
+    __tablename__ = "medical_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(String, nullable=True)
+    patient_pseudonym = Column(String, nullable=True)
+    action_summary = Column(String, nullable=False)
+    details_json = Column(Text, nullable=True)
+    cryptographic_hash = Column(String, nullable=False)
+    previous_hash = Column(String, nullable=True)
+    client_ip = Column(String, default="127.0.0.1")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class ClinicalPredictionRecord(Base):
+    __tablename__ = "clinical_predictions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    disease_type = Column(String, nullable=False, index=True)
+    patient_pseudonym = Column(String, nullable=False)
+    risk_percentage = Column(Float, nullable=False)
+    risk_category = Column(String, nullable=False) # Low, Moderate, High, Critical
+    confidence_interval = Column(String, nullable=True)
+    clinical_rationale = Column(Text, nullable=True)
+    shap_attributions = Column(Text, nullable=True)
+    guideline_citation = Column(String, nullable=True)
+    verification_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+

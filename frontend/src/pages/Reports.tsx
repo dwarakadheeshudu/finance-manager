@@ -69,7 +69,8 @@ const Reports: React.FC = () => {
   const handleDownload = (id: number, filename: string) => {
     // Open standard file download directly in a new window or trigger download via iframe/blob
     const token = localStorage.getItem('token');
-    const downloadUrl = `http://localhost:8000/api/reports/download/${id}?token=${token}`;
+    const hostOrigin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'http://127.0.0.1:8000';
+    const downloadUrl = `${hostOrigin}/api/reports/download/${id}?token=${token}`;
     
     // We can also fetch the file as a blob and download it to prevent CORS or Auth token parsing failures in window.open
     api({

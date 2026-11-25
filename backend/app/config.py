@@ -1,7 +1,7 @@
 import os
 
 class Settings:
-    PROJECT_NAME: str = "Smart Personal Finance Manager With AI"
+    PROJECT_NAME: str = "MedicAI: Clinical Intelligence & Diagnostic Platform"
     API_V1_STR: str = "/api"
     SECRET_KEY: str = os.getenv("SECRET_KEY", "finance_manager_super_secret_key_1234567890")
     ALGORITHM: str = "HS256"

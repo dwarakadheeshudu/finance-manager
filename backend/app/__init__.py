@@ -1,1 +1,1 @@
-# Smart Personal Finance Manager With AI Package
+# MedicAI: Clinical Intelligence & Diagnostic Platform Package

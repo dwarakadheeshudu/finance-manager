@@ -1,0 +1,165 @@
+{
+  "timestamp_utc": "2026-11-25T14:53:50.164027Z",
+  "scikit_learn_metrics": [
+    {
+      "model": "Cancer Risk (Oncology XGBoost)",
+      "samples": 240,
+      "positives_true": 120,
+      "positives_pred": 107,
+      "accuracy": 0.9458,
+      "precision": 1.0,
+      "recall": 0.8917,
+      "f1_score": 0.9427,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          120,
+          0
+        ],
+        [
+          13,
+          107
+        ]
+      ]
+    },
+    {
+      "model": "Heart Disease (Cardiology SVM)",
+      "samples": 240,
+      "positives_true": 120,
+      "positives_pred": 118,
+      "accuracy": 0.9917,
+      "precision": 1.0,
+      "recall": 0.9833,
+      "f1_score": 0.9916,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          120,
+          0
+        ],
+        [
+          2,
+          118
+        ]
+      ]
+    },
+    {
+      "model": "Parkinson's Voice (KNN Acoustics)",
+      "samples": 200,
+      "positives_true": 100,
+      "positives_pred": 101,
+      "accuracy": 0.995,
+      "precision": 0.9901,
+      "recall": 1.0,
+      "f1_score": 0.995,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          99,
+          1
+        ],
+        [
+          0,
+          100
+        ]
+      ]
+    },
+    {
+      "model": "Type 2 Diabetes (ADA 2026)",
+      "samples": 240,
+      "positives_true": 120,
+      "positives_pred": 120,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          120,
+          0
+        ],
+        [
+          0,
+          120
+        ]
+      ]
+    },
+    {
+      "model": "Chronic Kidney Disease (KDIGO 2024)",
+      "samples": 240,
+      "positives_true": 120,
+      "positives_pred": 120,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          120,
+          0
+        ],
+        [
+          0,
+          120
+        ]
+      ]
+    },
+    {
+      "model": "Pneumonia / Respiratory (CURB-65)",
+      "samples": 240,
+      "positives_true": 120,
+      "positives_pred": 120,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          120,
+          0
+        ],
+        [
+          0,
+          120
+        ]
+      ]
+    }
+  ],
+  "macro_averages": {
+    "accuracy": 0.9888,
+    "precision": 0.9983,
+    "recall": 0.9792,
+    "f1_score": 0.9882,
+    "roc_auc": 1.0
+  },
+  "functional_checks": [
+    {
+      "check": "Parkinson WAV Signal Extraction",
+      "passed": true,
+      "detail": "Healthy=5.3%, Dysphonic=98.5%"
+    },
+    {
+      "check": "Rare Disease Dynamic Prioritization & Honest Search",
+      "passed": true,
+      "detail": "Mitochondrial top=3T High-Resolution Brain MRI with Spectroscopy (MRS - NAA/Choline ratios) (86.0%)"
+    },
+    {
+      "check": "Appointment Persistence, 409 Conflict, Tele-URL, PDF Slip & Cancellation",
+      "passed": true,
+      "detail": "Ref=MED-APT-2026-22991, PDF=3620 bytes, 409 conflict & slot release verified"
+    },
+    {
+      "check": "Master Clinical PDF Generation & Verifiable Audit Seal",
+      "passed": true,
+      "detail": "ReportId=MED-RPT-2026-33084B, PDF=4095 bytes"
+    },
+    {
+      "check": "HIPAA Safe Harbor PHI Anonymization",
+      "passed": true,
+      "detail": "Redacted Name, DOB, Email, Phone, SSN"
+    }
+  ]
+}
